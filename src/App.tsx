@@ -5,6 +5,7 @@ import { ScriptGenerator } from './components/ScriptGenerator';
 import { ScriptOutput } from './components/ScriptOutput';
 import { PDFViewer } from './components/PDFViewer';
 import { GenerateReport } from './components/GenerateReport';
+import { supabase } from './lib/supabase';
 import type { ScriptForm, OllamaStatus } from './types';
 
 function App() {
@@ -51,7 +52,20 @@ function App() {
 
       const data = await response.json();
       setGeneratedScript(data.script);
-      toast.success('Script generated successfully');
+
+      // Save to Supabase
+      const { error: saveError } = await supabase
+        .from('scenarios')
+        .insert({
+          name: form.name,
+          description: form.description,
+          status: 'completed',
+          created_at: new Date().toISOString(),
+        });
+
+      if (saveError) throw saveError;
+      
+      toast.success('Script generated and saved successfully');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred';
       setError(message);
