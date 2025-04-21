@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { FileDown } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import type { ScriptForm } from '../types';

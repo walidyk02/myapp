@@ -1,14 +1,26 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import reactSwc from '@vitejs/plugin-react-swc';
 
 export default defineConfig({
-  plugins: [react()],
-  optimizeDeps: {
-    esbuildOptions: {
-      target: 'es2020'
-    }
-  },
+  plugins: [reactSwc()],
   build: {
-    target: 'es2020'
-  }
+    target: 'es2020',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'pdf-vendor': ['jspdf', 'react-pdf'],
+        },
+      },
+    },
+  },
+  optimizeDeps: {
+    exclude: ['@swc/core'],
+  },
+  server: {
+    proxy: {
+      // Redirige les requêtes vers le backend API
+      '/api': 'http://localhost:3001', // Assure-toi que ton serveur backend écoute sur ce port
+    },
+  },
 });
