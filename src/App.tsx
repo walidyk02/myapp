@@ -36,6 +36,8 @@ function App() {
     setIsLoading(true);
     setError('');
     
+    console.log('Form data being sent:', form); // Log les données envoyées
+  
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/generate`, {
         method: 'POST',
@@ -44,15 +46,17 @@ function App() {
         },
         body: JSON.stringify(form),
       });
-
+  
       if (!response.ok) {
         const data = await response.json();
+        console.log('Error response:', data); // Log la réponse d'erreur
         throw new Error(data.message || 'Failed to generate script');
       }
-
+  
       const data = await response.json();
+      console.log('Success response:', data); // Log la réponse en cas de succès
       setGeneratedScript(data.script);
-
+  
       // Save to Supabase
       const { error: saveError } = await supabase
         .from('scenarios')
@@ -62,7 +66,7 @@ function App() {
           status: 'completed',
           created_at: new Date().toISOString(),
         });
-
+  
       if (saveError) throw saveError;
       
       toast.success('Script generated and saved successfully');
@@ -75,7 +79,7 @@ function App() {
       setIsLoading(false);
     }
   };
-
+  
   return (
     <>
       <Toaster position="top-right" />

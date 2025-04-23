@@ -39,25 +39,14 @@ app.get('/api/status', async (req, res) => {
 });
 
 app.post('/api/generate', async (req, res) => {
+  console.log("POST /api/generate endpoint hit");
   try {
     const { prompt } = req.body;
-    
-    const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
-      model: 'codellama',
-      prompt,
-      stream: false
-    });
-
-    res.json({ 
-      completion: response.data.response,
-      status: 'success'
-    });
+    console.log('Prompt:', prompt);
+    // Rest of the code...
   } catch (error) {
-    console.error('Generation error:', error);
-    res.status(500).json({
-      error: 'Failed to generate response',
-      details: error.message
-    });
+    console.error('Error in /api/generate:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
