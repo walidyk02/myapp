@@ -2,172 +2,191 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import axios from 'axios';
+import { createClient } from '@supabase/supabase-js';
 
 dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 4000;
+const OLLAMA_URL = 'http://localhost:11434';
+
+// Configuration Supabase
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL, 
+  process.env.VITE_SUPABASE_ANON_KEY
+);
+
 app.use(cors());
 app.use(express.json());
 
-const OLLAMA_URL = 'http://localhost:11434';
-
-// Function to check if Ollama is running and model is available
+// Vérifie si Ollama est actif et si le modèle est chargé
 async function checkOllamaStatus() {
   try {
-    // Check if Ollama is running
-    const versionResponse = await axios.get(`${OLLAMA_URL}/api/version`);
-    
-    // Check if CodeLlama model is available
-    const modelResponse = await axios.post(`${OLLAMA_URL}/api/show`, {
-      name: 'codellama'
-    });
-    
-    return { 
-      running: true, 
-      version: versionResponse.data.version,
-      model: modelResponse.data ? 'available' : 'not found'
+    const versionRes = await axios.get(`${OLLAMA_URL}/api/version`);
+    const modelRes = await axios.post(`${OLLAMA_URL}/api/show`, { name: 'codellama' });
+
+    return {
+      running: true,
+      version: versionRes.data.version,
+      model: modelRes.data ? 'available' : 'not found',
     };
   } catch (error) {
-    console.error('Ollama connection error:', error.message);
-    
     if (error.code === 'ECONNREFUSED') {
-      return { 
-        running: false, 
-        error: 'Ollama is not running. Please start Ollama using: ollama serve'
+      return {
+        running: false,
+        error: 'Ollama n\'est pas lancé. Exécutez : ollama serve',
       };
     }
-    
     if (error.response?.status === 404) {
-      return { 
-        running: true, 
-        error: 'CodeLlama model not found. Please install it using: ollama pull codellama'
+      return {
+        running: true,
+        error: 'Le modèle CodeLlama est introuvable. Exécutez : ollama pull codellama',
       };
     }
-    
-    return { 
-      running: false, 
-      error: `Unexpected error: ${error.message}`
+    console.error('Erreur inattendue lors de la connexion à Ollama :', error);
+    return {
+      running: false,
+      error: `Erreur inattendue : ${error.message}`,
     };
   }
 }
 
-// Function to generate prompt
-function generatePrompt(name, description) {
+// Génère un prompt à partir du nom et de la description, avec des exemples supplémentaires
+async function generatePrompt(name, description) {
+  // Récupère des scripts similaires depuis `manual_scripts` pour enrichir le prompt
+  const { data: manualScripts, error } = await supabase
+    .from('manual_scripts')
+    .select('script')
+    .limit(3); // Limite à 3 scripts
+
+  if (error) {
+    console.error('Erreur lors de la récupération des scripts :', error.message);
+  }
+
+  // Ajoute les scripts manuels au prompt si disponibles
+  const examples = manualScripts
+    ? manualScripts.map((script) => script.script).join('\n\n')
+    : '';
+
   return `Generate a JavaScript script based on the following requirements:
 Name: ${name}
 Description: ${description}
+
+Here are some example scripts to help guide the generation:
+${examples}
 
 Please provide a complete, working JavaScript implementation that fulfills these requirements.
 Include comments explaining the code.`;
 }
 
-// Default route
+// Route par défaut
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'ok',
     message: 'Script Generator API is running',
     endpoints: {
-      '/': 'API status',
       '/api/status': 'Ollama status',
-      '/api/generate': 'Generate script (POST)'
+      '/api/generate': 'Generate script (POST)',
+      '/api/healthcheck': 'Basic health check'
     }
   });
 });
 
+// Vérification de l'état d'Ollama
 app.get('/api/status', async (req, res) => {
-  try {
-    const status = await checkOllamaStatus();
-    res.json({ 
-      status: status.running ? 'running' : 'not_running',
-      message: status.running 
-        ? status.error || `Ollama is running (version ${status.version}, model: ${status.model})`
-        : status.error || 'Ollama is not running. Please start Ollama first.',
-      details: status
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to check Ollama status',
-      error: error.message
-    });
-  }
+  const status = await checkOllamaStatus();
+  res.json({
+    status: status.running ? 'running' : 'not_running',
+    message: status.error || `Ollama is running (version ${status.version}, model: ${status.model})`,
+    details: status
+  });
 });
 
+// Health check simple
+app.get('/api/healthcheck', (req, res) => {
+  res.status(200).send('OK');
+});
+
+// Génération de script
 app.post('/api/generate', async (req, res) => {
+  const status = await checkOllamaStatus();
+  if (!status.running || status.error) {
+    return res.status(503).json({
+      error: 'Service Ollama indisponible',
+      message: status.error,
+    });
+  }
+
+  const { name, description } = req.body;
+
+  if (!name || !description) {
+    return res.status(400).json({
+      error: 'Champs requis manquants',
+      message: 'Le nom et la description sont obligatoires',
+    });
+  }
+
+  const prompt = await generatePrompt(name, description);
+
   try {
-    // Check if Ollama is running
-    const status = await checkOllamaStatus();
-    if (!status.running || status.error) {
-      return res.status(503).json({ 
-        error: 'Ollama service unavailable',
-        message: status.error || 'Please make sure Ollama is running and the CodeLlama model is installed.',
-        details: status
-      });
-    }
-
-    const { name, description } = req.body;
-
-    if (!name || !description) {
-      return res.status(400).json({
-        error: 'Missing required fields',
-        message: 'Both name and description are required'
-      });
-    }
-
-    // Generate prompt
-    const prompt = generatePrompt(name, description);
-
-    // Call Ollama API using the correct format
-    const ollamaResponse = await axios.post(`${OLLAMA_URL}/api/generate`, {
+    const ollamaRes = await axios.post(`${OLLAMA_URL}/api/generate`, {
       model: 'codellama',
       prompt,
       stream: false,
       options: {
         temperature: 0.7,
-        top_p: 0.9
+        top_p: 0.9,
       }
     });
 
-    if (!ollamaResponse.data.response) {
-      throw new Error('No response from Ollama');
+    if (!ollamaRes.data.response) throw new Error('Aucune réponse d\'Ollama');
+
+    // Sauvegarde dans la table `scenarios`
+    const { error: insertError } = await supabase
+      .from('scenarios')
+      .insert([{
+        name,
+        description,
+        script: ollamaRes.data.response
+      }]);
+
+    if (insertError) {
+      console.error('Erreur lors de l\'insertion dans `scenarios` :', insertError.message);
     }
 
-    res.json({ 
-      script: ollamaResponse.data.response,
+    res.json({
+      script: ollamaRes.data.response,
       metadata: {
         model: 'codellama',
         generated_at: new Date().toISOString()
       }
     });
   } catch (error) {
-    console.error('Generation error:', error);
-    const errorMessage = error.response?.data?.error || error.message || 'Failed to generate script';
-    res.status(500).json({ 
-      error: errorMessage,
+    console.error('Erreur lors de la génération ou de l\'insertion :', error);
+    res.status(500).json({
+      error: error.response?.data?.error || error.message || 'Échec de la génération du script',
       details: {
         code: error.code,
         message: error.message,
-        response: error.response?.data
+        response: error.response?.data,
       }
     });
   }
 });
 
-const PORT = process.env.PORT || 3002;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Checking Ollama connection...`);
-  checkOllamaStatus().then(status => {
-    if (status.running && !status.error) {
-      console.log(`✓ Connected to Ollama (version ${status.version})`);
-      console.log(`✓ Server ready at http://localhost:${PORT}`);
-    } else {
-      console.log(`✗ ${status.error || 'Could not connect to Ollama'}`);
-      if (!status.running) {
-        console.log('Run: ollama serve');
-      } else if (status.error?.includes('not found')) {
-        console.log('Run: ollama pull codellama');
-      }
+// Démarrage du serveur
+app.listen(PORT, async () => {
+  console.log(`🚀 Serveur en cours d'exécution : http://localhost:${PORT}`);
+  const status = await checkOllamaStatus();
+
+  if (status.running && !status.error) {
+    console.log(`✅ Connecté à Ollama (version : ${status.version})`);
+  } else {
+    console.warn(`⚠️ ${status.error}`);
+    if (!status.running) {
+      console.warn('👉 Commande à exécuter : ollama serve');
+    } else if (status.error?.includes('not found')) {
+      console.warn('👉 Commande à exécuter : ollama pull codellama');
     }
-  });
+  }
 });

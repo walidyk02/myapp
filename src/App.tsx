@@ -5,8 +5,10 @@ import { ScriptGenerator } from './components/ScriptGenerator';
 import { ScriptOutput } from './components/ScriptOutput';
 import { PDFViewer } from './components/PDFViewer';
 import { GenerateReport } from './components/GenerateReport';
-import { supabase } from './lib/supabase';
+import { supabase } from './lib/supabase.ts';
 import type { ScriptForm, OllamaStatus } from './types';
+
+
 
 function App() {
   const [form, setForm] = useState<ScriptForm>({ name: '', description: '' });

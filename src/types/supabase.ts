@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface Database {
+export  interface Database {
   public: {
     Tables: {
       scenarios: {
@@ -64,8 +64,22 @@ export interface Database {
           training_progress?: number | null
           last_trained_at?: string | null
         }
-      }
-    }
+      };
+    };
+    manual_scripts: {
+      Row: {
+        id: number;
+        script: string;
+        created_at: string;
+      };
+      Insert: {
+        script: string;
+      };
+      Update: {
+        script?: string;
+      };
+    };
+  
     Views: {
       [_ in never]: never
     }
