@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import axios from 'axios';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from './supabase.js';
 
 dotenv.config();
 
@@ -10,11 +10,10 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const OLLAMA_URL = 'http://localhost:11434';
 
-// Configuration Supabase
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL, 
-  process.env.VITE_SUPABASE_ANON_KEY
-);
+// Vérification des variables d'environnement
+if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY) {
+  throw new Error('⚠️ Variables Supabase manquantes. Vérifiez .env');
+}
 
 app.use(cors());
 app.use(express.json());
@@ -51,33 +50,37 @@ async function checkOllamaStatus() {
   }
 }
 
-// Génère un prompt à partir du nom et de la description, avec des exemples supplémentaires
 async function generatePrompt(name, description) {
-  // Récupère des scripts similaires depuis `manual_scripts` pour enrichir le prompt
   const { data: manualScripts, error } = await supabase
     .from('manual_scripts')
-    .select('script')
-    .limit(3); // Limite à 3 scripts
+    .select('name, description, script')
+    .limit(3); // tu peux augmenter ce nombre si besoin
 
   if (error) {
     console.error('Erreur lors de la récupération des scripts :', error.message);
   }
 
-  // Ajoute les scripts manuels au prompt si disponibles
-  const examples = manualScripts
-    ? manualScripts.map((script) => script.script).join('\n\n')
-    : '';
+  const examples = manualScripts?.length
+    ? manualScripts.map((s, i) => `
+Example ${i + 1}
+Name: ${s.name}
+Description: ${s.description}
+Script:
+${s.script}
+`).join('\n\n')
+    : '// Aucun exemple trouvé.';
 
   return `Generate a JavaScript script based on the following requirements:
 Name: ${name}
 Description: ${description}
 
-Here are some example scripts to help guide the generation:
+Here are some example scripts to guide you:
 ${examples}
 
 Please provide a complete, working JavaScript implementation that fulfills these requirements.
 Include comments explaining the code.`;
 }
+
 
 // Route par défaut
 app.get('/', (req, res) => {
@@ -141,13 +144,15 @@ app.post('/api/generate', async (req, res) => {
 
     if (!ollamaRes.data.response) throw new Error('Aucune réponse d\'Ollama');
 
-    // Sauvegarde dans la table `scenarios`
     const { error: insertError } = await supabase
       .from('scenarios')
       .insert([{
         name,
         description,
-        script: ollamaRes.data.response
+        model_data: {
+          prompt,
+          script: ollamaRes.data.response
+        }
       }]);
 
     if (insertError) {

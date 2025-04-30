@@ -5,21 +5,21 @@ import { ScriptGenerator } from './components/ScriptGenerator';
 import { ScriptOutput } from './components/ScriptOutput';
 import { PDFViewer } from './components/PDFViewer';
 import { GenerateReport } from './components/GenerateReport';
-import { supabase } from './lib/supabase.ts';
-import type { ScriptForm, OllamaStatus } from './types';
-
-
+import { supabase } from './lib/supabase';
+import type { ScriptForm, OllamaStatus } from './types';  // Importer les types
 
 function App() {
-  const [form, setForm] = useState<ScriptForm>({ name: '', description: '' });
-  const [generatedScript, setGeneratedScript] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string>('');
+  const [form, setForm] = useState<ScriptForm>({ name: '', description: '' });  // TypeScript pour le formulaire
+  const [generatedScript, setGeneratedScript] = useState<string>('');  // TypeScript pour le script généré
+  const [isLoading, setIsLoading] = useState<boolean>(false);  // TypeScript pour l'état de chargement
+  const [error, setError] = useState<string>('');  // TypeScript pour l'erreur
 
+  // Vérifie l'état de Ollama au chargement du composant
   useEffect(() => {
     checkOllamaStatus();
   }, []);
 
+  // Fonction pour vérifier le statut d'Ollama
   const checkOllamaStatus = async () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/status`);
@@ -33,6 +33,7 @@ function App() {
     }
   };
 
+  // Fonction appelée lors de la soumission du formulaire
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -81,7 +82,7 @@ function App() {
       setIsLoading(false);
     }
   };
-  
+
   return (
     <>
       <Toaster position="top-right" />
