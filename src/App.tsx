@@ -6,25 +6,24 @@ import { ScriptOutput } from './components/ScriptOutput';
 import { PDFViewer } from './components/PDFViewer';
 import { GenerateReport } from './components/GenerateReport';
 import { supabase } from './lib/supabase';
-import type { ScriptForm, OllamaStatus } from './types';  // Importer les types
+import type { ScriptForm, OllamaStatus } from './types';
 
 function App() {
-  const [form, setForm] = useState<ScriptForm>({ name: '', description: '' });  // TypeScript pour le formulaire
-  const [generatedScript, setGeneratedScript] = useState<string>('');  // TypeScript pour le script généré
-  const [isLoading, setIsLoading] = useState<boolean>(false);  // TypeScript pour l'état de chargement
-  const [error, setError] = useState<string>('');  // TypeScript pour l'erreur
+  const [form, setForm] = useState<ScriptForm>({ name: '', description: '' });
+  const [generatedScript, setGeneratedScript] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+  const backendUrl = import.meta.env.VITE_API_URL;
 
-  // Vérifie l'état de Ollama au chargement du composant
   useEffect(() => {
     checkOllamaStatus();
   }, []);
 
-  // Fonction pour vérifier le statut d'Ollama
   const checkOllamaStatus = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/status`);
+      const response = await fetch(`${backendUrl}/api/status`);
       const data: OllamaStatus = await response.json();
-      
+
       if (data.status === 'not_running') {
         toast.error(data.message);
       }
@@ -33,34 +32,32 @@ function App() {
     }
   };
 
-  // Fonction appelée lors de la soumission du formulaire
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    
-    console.log('Form data being sent:', form); // Log les données envoyées
-  
+
+    console.log('Form data being sent:', form);
+
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/generate`, {
+      const response = await fetch(`${backendUrl}/api/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(form),
       });
-  
+
       if (!response.ok) {
         const data = await response.json();
-        console.log('Error response:', data); // Log la réponse d'erreur
+        console.log('Error response:', data);
         throw new Error(data.message || 'Failed to generate script');
       }
-  
+
       const data = await response.json();
-      console.log('Success response:', data); // Log la réponse en cas de succès
+      console.log('Success response:', data);
       setGeneratedScript(data.script);
-  
-      // Save to Supabase
+
       const { error: saveError } = await supabase
         .from('scenarios')
         .insert({
@@ -69,9 +66,9 @@ function App() {
           status: 'completed',
           created_at: new Date().toISOString(),
         });
-  
+
       if (saveError) throw saveError;
-      
+
       toast.success('Script generated and saved successfully');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred';
@@ -88,10 +85,13 @@ function App() {
       <Toaster position="top-right" />
       <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white p-8">
         <div className="max-w-6xl mx-auto">
-          <header className="flex items-center justify-between mb-12">
+          <header className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-2">
             <div className="flex items-center gap-3">
               <Code2 className="w-10 h-10 text-blue-400" />
               <h1 className="text-3xl font-bold">Script Generator AI</h1>
+            </div>
+            <div className="text-sm text-gray-400">
+              Backend connecté : <span className="text-green-400">{backendUrl}</span>
             </div>
             <GenerateReport script={generatedScript} form={form} />
           </header>

@@ -20,7 +20,7 @@ export default defineConfig({
   server: {
     proxy: {
       // Redirige les requêtes vers le backend API
-      '/api': 'http://localhost:4000', // Assure-toi que ton serveur backend écoute sur ce port
+      '/api': 'http://localhost:5000', // Assure-toi que ton serveur backend écoute sur ce port
     },
   },
 });

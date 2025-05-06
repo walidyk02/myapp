@@ -34,7 +34,7 @@ ollama run codellama
 Démarrer l'API
 bash
 npm run dev
-Par défaut, l’API tourne sur : http://localhost:3001
+Par défaut, l’API tourne sur : http://localhost:4000
 
 3. Frontend – App React
 bash
