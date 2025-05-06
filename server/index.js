@@ -61,33 +61,37 @@ async function generatePrompt(name, description) {
 
     if (error) throw error;
 
-    const examples = (data || []).map((ex) => (
+    const examples = data || [];
+
+    const formatted = examples.map((ex) => (
       `---\nName: ${ex.name}\nDescription: ${ex.description}\nScript:\n${ex.script}\n---`
     )).join('\n\n');
     
     const prompt = `
     You are a JavaScript expert assistant. Only return the code, no explanations.
-    
+
     Here are some example scripts:
-    
-    ${examples || '// No examples found.'}
-    
+
+    ${formatted || '// No examples found.'}
+
     Now, generate a new script based on the following request:
-    
+
     Name: ${name}  
     Description: ${description}  
-    
+
     Script:
     `.trim();
-    
 
     console.log('🧪 Prompt généré :\n', prompt);
-    return prompt;
+    
+    // Retourner prompt + exemples utilisés
+    return { prompt, examples };
   } catch (error) {
     console.error('❌ Erreur lors de la génération du prompt :', error.message);
-    return null;
+    return { prompt: null, examples: [] };
   }
 }
+
 
 // 🌐 Routes
 app.get('/', (req, res) => {
@@ -130,10 +134,11 @@ app.post('/api/generate', async (req, res) => {
     });
   }
 
-  const prompt = await generatePrompt(name, description);
-  if (!prompt) {
-    return res.status(500).json({ error: 'Erreur lors de la génération du prompt.' });
-  }
+  // ❗️ Nouveau : récupère prompt + exemples utilisés
+const { prompt, examples } = await generatePrompt(name, description);
+if (!prompt) {
+  return res.status(500).json({ error: 'Erreur lors de la génération du prompt.' });
+}
 
   try {
     const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
@@ -159,8 +164,12 @@ app.post('/api/generate', async (req, res) => {
         model_data: {
           prompt,
           script: generatedScript,
-          examples_used: data?.map(e => ({ name: e.name, description: e.description })) || [],
+          examples_used: examples.map(e => ({
+            name: e.name,
+            description: e.description,
+          })),
         },
+        
         
       }]);
 
