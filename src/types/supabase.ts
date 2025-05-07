@@ -28,6 +28,24 @@ export interface Database {
           script?: string;
         };
       };
+
+      core_code: {
+        Row: {
+          id: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          content?: string;
+          created_at?: string;
+        };
+      };
+
       scenarios: {
         Row: {
           id: string;

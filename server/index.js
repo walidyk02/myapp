@@ -56,9 +56,29 @@ async function checkOllamaStatus() {
   }
 }
 
+// 🔧 Récupère le core code depuis Supabase
+async function getCoreCode() {
+  const { data, error } = await supabase
+    .from('core_code')
+    .select('content')
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error || !data?.[0]?.content) {
+    console.warn('⚠️ Core code manquant ou erreur :', error?.message);
+    return '// Core code indisponible';
+  }
+
+  return data[0].content;
+}
+
 // 🧠 Génère le prompt en se basant sur les exemples stockés
 async function generatePrompt(name, description) {
   try {
+    // 1. Récupère le core code
+    const coreCode = await getCoreCode();
+
+    // 2. Récupère les exemples de scripts
     const { data, error } = await supabase
       .from('manual_scripts')
       .select('name, description, script')
@@ -71,25 +91,29 @@ async function generatePrompt(name, description) {
     const formatted = examples.map((ex) => (
       `---\nName: ${ex.name}\nDescription: ${ex.description}\nScript:\n${ex.script}\n---`
     )).join('\n\n');
-    
+
+    // 3. Assemble le prompt complet
     const prompt = `
-    You are a JavaScript expert assistant. Only return the code, no explanations.
+You are a JavaScript expert using the WP framework.
 
-    Here are some example scripts:
+Here are utility functions you can use:
+\`\`\`javascript
+${coreCode}
+\`\`\`
 
-    ${formatted || '// No examples found.'}
+Here are example scripts:
+${formatted || '// No examples found.'}
 
-    Now, generate a new script based on the following request:
+Now, generate a new script based on the following request:
 
-    Name: ${name}  
-    Description: ${description}  
+Name: ${name}
+Description: ${description}
 
-    Script:
-    `.trim();
+Script:
+`.trim();
 
     console.log('🧪 Prompt généré :\n', prompt);
-    
-    // Retourner prompt + exemples utilisés
+
     return { prompt, examples };
   } catch (error) {
     console.error('❌ Erreur lors de la génération du prompt :', error.message);
