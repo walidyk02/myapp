@@ -5,7 +5,6 @@ import { ScriptGenerator } from './components/ScriptGenerator';
 import { ScriptOutput } from './components/ScriptOutput';
 import { PDFViewer } from './components/PDFViewer';
 import { GenerateReport } from './components/GenerateReport';
-import { supabase } from './lib/supabase';
 import type { ScriptForm, OllamaStatus } from './types';
 
 function App() {
@@ -18,6 +17,29 @@ function App() {
   useEffect(() => {
     checkOllamaStatus();
   }, []);
+
+  useEffect(() => {
+    if (!backendUrl) {
+      toast.error('VITE_API_URL is not defined!');
+    }
+  }, []);
+  
+  useEffect(() => {
+    const pingBackend = async () => {
+      try {
+        const res = await fetch(`${backendUrl}/ping`);
+        if (res.ok) {
+          console.log('✅ Backend is reachable');
+        } else {
+          toast.error('⚠️ Backend reachable but returned an error');
+        }
+      } catch (err) {
+        toast.error('❌ Could not reach backend at ' + backendUrl);
+      }
+    };
+  
+    if (backendUrl) pingBackend();
+  }, [backendUrl]);
 
   const checkOllamaStatus = async () => {
     try {
@@ -57,17 +79,6 @@ function App() {
       const data = await response.json();
       console.log('Success response:', data);
       setGeneratedScript(data.script);
-
-      const { error: saveError } = await supabase
-        .from('scenarios')
-        .insert({
-          name: form.name,
-          description: form.description,
-          status: 'completed',
-          created_at: new Date().toISOString(),
-        });
-
-      if (saveError) throw saveError;
 
       toast.success('Script generated and saved successfully');
     } catch (err) {

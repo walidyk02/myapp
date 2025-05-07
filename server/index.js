@@ -20,6 +20,11 @@ if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY) {
 app.use(cors());
 app.use(express.json());
 
+app.get('/ping', (req, res) => {
+  res.status(200).send('pong');
+});
+
+
 // 🔍 Vérifie l’état d’Ollama et du modèle
 async function checkOllamaStatus() {
   try {
