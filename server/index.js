@@ -7,7 +7,7 @@ import { supabase } from './supabase.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 const OLLAMA_URL = 'http://localhost:11434';
 const MODEL_NAME = 'script-generator';
 
