@@ -75,10 +75,9 @@ async function getCoreCode() {
 // 🧠 Génère le prompt en se basant sur les exemples stockés
 async function generatePrompt(name, description) {
   try {
-    // 1. Récupère le core code
     const coreCode = await getCoreCode();
 
-    // 2. Récupère les exemples de scripts
+    // Récupère les exemples de scripts, mais filtre-les si nécessaire
     const { data, error } = await supabase
       .from('manual_scripts')
       .select('name, description, script')
@@ -88,23 +87,53 @@ async function generatePrompt(name, description) {
 
     const examples = data || [];
 
+    // Vous pourriez ici ajouter une logique de filtrage si vous avez des catégories dans votre base
+    // Par exemple :
+    // const filteredExamples = examples.filter(ex => ex.category === 'formAutomation');
+
     const formatted = examples.map((ex) => (
       `---\nName: ${ex.name}\nDescription: ${ex.description}\nScript:\n${ex.script}\n---`
     )).join('\n\n');
 
-    // 3. Assemble le prompt complet
     const prompt = `
-You are a JavaScript expert using the WP framework.
+You are a JavaScript expert working with the WP framework inside a specialized application template.
+
+⚠️ STRICT RULES:
+- ❌ DO NOT declare or redefine: WP, Core, core, APIS, Helpers, startScript, messages, urlNavigation — they are already initialized in the runtime.
+- ❌ DO NOT declare any class or import/require statement.
+- ✅ Only write the logic inside the main script block: this corresponds to the [script] section.
+- ✅ Use ONLY the WP.* and utilities.* functions listed below.
 
 Here are utility functions you can use:
 \`\`\`javascript
+// Core WP functions
+WP.randomNumber(min, max, instance?)
+WP.randomWait(min, max, instance?)
+WP.typeTextBySelector(selectorExpression, text, instance?)
+WP.typeText({ selector, type }, text, instance?)
+WP.clickElementByXpath(xpathExpression, instance?)
+WP.clickElementBySelector(selectorExpression, instance?)
+WP.clearInputBySelector(selectorExpression, instance?)
+WP.waitForNavigation({ waitUntil, timeout }, instance?)
+WP.waitForElement({ selector, type }, timeout, instance?)
+WP.gotoURL(url, waitUntil?, timeout?, instance?)
+WP.checkElementByXpath(xpathExpression, instance?)
+WP.checkElement({ selector, type }, instance?)
+WP.getElement({ selector, type }, instance?)
+WP.clickElement({ selector, type }, instance?)
+WP.fetchDOM(callback, instance?, ...args)
+WP.logMessage(message)
+utilities.scrollToBottomPage()
+\`\`\`
 ${coreCode}
 \`\`\`
 
 Here are example scripts:
 ${formatted || '// No examples found.'}
 
-Now, generate a new script based on the following request:
+Now, generate ONLY the logic that goes inside the script block, without declaring WP, Core, or any global.
+Request:
+
 
 Name: ${name}
 Description: ${description}
@@ -163,11 +192,10 @@ app.post('/api/generate', async (req, res) => {
     });
   }
 
-  // ❗️ Nouveau : récupère prompt + exemples utilisés
-const { prompt, examples } = await generatePrompt(name, description);
-if (!prompt) {
-  return res.status(500).json({ error: 'Erreur lors de la génération du prompt.' });
-}
+  const { prompt, examples } = await generatePrompt(name, description);
+  if (!prompt) {
+    return res.status(500).json({ error: 'Erreur lors de la génération du prompt.' });
+  }
 
   try {
     const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
@@ -184,6 +212,11 @@ if (!prompt) {
     const generatedScript = response.data?.response;
     if (!generatedScript) throw new Error('Aucune réponse reçue du modèle.');
 
+    // Validation simple : vérifier si le script contient le mot-clé "WP"
+    if (!generatedScript.includes('WP')) {
+      throw new Error('Le script généré n\'est pas valide.');
+    }
+
     // Enregistrement dans Supabase
     const { error: insertError } = await supabase
       .from('scenarios')
@@ -198,8 +231,6 @@ if (!prompt) {
             description: e.description,
           })),
         },
-        
-        
       }]);
 
     if (insertError) {
@@ -221,6 +252,7 @@ if (!prompt) {
     });
   }
 });
+
 
 // ▶️ Lancer le serveur
 app.listen(PORT, async () => {
