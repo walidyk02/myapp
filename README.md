@@ -1,15 +1,18 @@
-# 🧠 AI Script Generator with Ollama, Supabase & React
 
-Ce projet est une application web complète qui permet aux utilisateurs de générer automatiquement des **scripts JavaScript** à partir d’une description textuelle, en utilisant un agent IA local basé sur **Ollama**. Les exemples sont stockés dans **Supabase** pour un entraînement contextuel.
 
-## 🛠️ Stack technique
+# 🧠 Script Generator with Ollama + WP Framework
 
-- 🧠 IA : [Ollama](https://ollama.com/) avec `codellama`
-- 🔥 Frontend : React 18 + TypeScript + Tailwind CSS
-- ⚙️ Backend : Node.js + Express
-- 📦 Base de données : Supabase (PostgreSQL)
-- 📡 API : RESTful
-- 🧪 Entraînement IA : Vectorisation + comparaison sémantique (TensorFlow.js, USE)
+Ce projet est une application complète permettant de générer automatiquement des scripts d'automatisation Web à l'aide du framework `WP` et du modèle local `Ollama`.
+
+## 🚀 Fonctionnalités
+
+- 🧠 Génération de scripts basée sur des descriptions (prompt)
+- 🧩 Utilise un modèle LLM local personnalisé (`script-generator`)
+- 🛠 Framework WP pour automatiser des tâches web : clics, formulaires, navigation, etc.
+- 💾 Stockage des scripts dans Supabase (optionnel)
+- 📄 Export des résultats au format PDF
+- ⚡ Interface moderne avec React + TypeScript
+
 
 ---
 
@@ -34,7 +37,7 @@ ollama run codellama
 Démarrer l'API
 bash
 npm run dev
-Par défaut, l’API tourne sur : http://localhost:4000
+Par défaut, l’API tourne sur : http://localhost:5001
 
 3. Frontend – App React
 bash
