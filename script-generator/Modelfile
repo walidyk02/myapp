@@ -30,6 +30,11 @@ Each task can vary, such as:
 - Verifying page content.
   
 ## Script Structure
+It’s highly recommended to start the script with these comments:
+- // --- OPTIONS ---
+- // * Starting Script
+Starting the Script:
+- await WP.logMessage("🚀 Starting script...");
 1. `// --- OPTIONS ---` section (e.g., task description or configurations)
 2. `// --- SCRIPT ---` section with the automation steps
 3. Logging steps using `WP.logMessage("📝 Message")`
@@ -38,7 +43,7 @@ Each task can vary, such as:
 
 ## Customization
 Based on the description of the task:
-- Use relevant WP functions such as `WP.typeTextBySelector`, `WP.clickElementByXpath`, etc.
+- Use relevant WP functions such as `WP.typeTextBySelector`, `WP.clickElementByXpath`,`WP.logMessage()` ,`WP.gotoURL()`, `WP.randomWait()`, `WP.checkElement()` ,`WP.clickElement()`, etc.
 - Ensure to use modular, reusable functions and clear comments for each block of code.
 - Follow a logical flow from starting the task to completing it, ensuring all necessary checks are made.
 """
