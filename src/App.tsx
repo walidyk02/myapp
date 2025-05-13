@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Code2 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
+import { ThemeToggle } from './components/ThemeToggle';
+import { useTheme } from './hooks/useTheme';
 import { ScriptGenerator } from './components/ScriptGenerator';
 import { ScriptOutput } from './components/ScriptOutput';
 import { GenerateReport } from './components/GenerateReport';
-
+import { ScriptHistory } from './components/ScriptHistory';
+import { useScriptHistory } from './hooks/useScriptHistory';
 import type { ScriptForm, OllamaStatus } from './types';
 
 function App() {
+  const { theme, toggleTheme } = useTheme();
   const [form, setForm] = useState<ScriptForm>({ name: '', description: '' });
   const [generatedScript, setGeneratedScript] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const backendUrl = import.meta.env.VITE_API_URL;
+  const { history, addToHistory, removeFromHistory, clearHistory } = useScriptHistory();
 
   useEffect(() => {
     checkOllamaStatus();
@@ -71,15 +76,19 @@ function App() {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        console.log('Error response:', data);
-        throw new Error(data.message || 'Failed to generate script');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
       console.log('Success response:', data);
-      setGeneratedScript(data.script);
-
+      const script = data.script;
+      setGeneratedScript(script);
+      setIsLoading(false);
+      
+      // Ajouter à l'historique avec le script généré
+      if (script) {
+        addToHistory(script, form);
+      }
       toast.success('Script generated and saved successfully');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred';
@@ -94,12 +103,30 @@ function App() {
   return (
     <>
       <Toaster position="top-right" />
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white p-8">
-        <div className="max-w-6xl mx-auto">
+      <div className="min-h-screen flex bg-[var(--bg-primary)] text-[var(--text-primary)]">
+        <ScriptHistory
+          items={history.items}
+          onSelect={(item) => {
+            // Mettre à jour le formulaire
+            setForm({
+              name: item.name,
+              description: item.description
+            });
+            // Restaurer le script
+            if (item.script) {
+              setGeneratedScript(item.script);
+              console.log('Script restauré:', item.script);
+            }
+          }}
+          onDelete={removeFromHistory}
+          onClear={clearHistory}
+        />
+        <div className="flex-1 p-8 space-y-8">
           <header className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-2">
             <div className="flex items-center gap-3">
               <Code2 className="w-10 h-10 text-blue-400" />
-              <h1 className="text-3xl font-bold">Script Generator AI</h1>
+              <h1 className="text-2xl font-bold">Script Generator</h1>
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
             </div>
             <div className="text-sm text-gray-400">
               Backend connecté : <span className="text-green-400">{backendUrl}</span>

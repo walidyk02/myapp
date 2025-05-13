@@ -9,48 +9,90 @@ interface GenerateReportProps {
 }
 
 export function GenerateReport({ script, form }: GenerateReportProps) {
+  const extractScriptInfo = (script: string) => {
+    const urlMatch = script.match(/const Url = "([^"]+)"/)?.[1] || 'Non spécifié';
+    const actionsMatch = script.match(/for \(let i = 0; i < (\d+)/)?.[1] || '0';
+    const hasErrorHandling = script.includes('try') && script.includes('catch');
+
+    return {
+      url: urlMatch,
+      actions: parseInt(actionsMatch),
+      errorHandling: hasErrorHandling
+    };
+  };
+
   const generatePDF = () => {
     const doc = new jsPDF();
+    const scriptInfo = extractScriptInfo(script);
     
-    // Add title
-    doc.setFontSize(20);
+    // En-tête du rapport
+    doc.setFontSize(24);
+    doc.setTextColor(41, 128, 185);
     doc.text('Script Generator Report', 20, 20);
     
-    // Add metadata
+    // Métadonnées
     doc.setFontSize(12);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 35);
+    doc.setTextColor(0);
+    doc.text(`Généré le : ${new Date().toLocaleString()}`, 20, 35);
     
-    // Add script details
-    doc.setFontSize(16);
-    doc.text('Script Details', 20, 50);
+    // Détails du script
+    doc.setFontSize(18);
+    doc.setTextColor(52, 73, 94);
+    doc.text('Détails du Script', 20, 50);
     
+    // Informations du script
     doc.setFontSize(12);
-    doc.text(`Name: ${form.name}`, 20, 65);
-    doc.text('Description:', 20, 80);
+    doc.setTextColor(0);
+    doc.text([
+      `Nom : ${form.name}`,
+      `URL cible : ${scriptInfo.url}`,
+      `Nombre d'actions : ${scriptInfo.actions}`,
+      `Temps d'attente : 3-5 secondes`,
+      `Gestion d'erreurs : ${scriptInfo.errorHandling ? 'Oui' : 'Non'}`
+    ].join('\n'), 20, 65);
     
-    // Handle description text wrapping
+    // Description
+    doc.text('Description :', 20, 110);
     const splitDescription = doc.splitTextToSize(form.description, 170);
-    doc.text(splitDescription, 20, 90);
+    doc.text(splitDescription, 20, 120);
     
-    // Add generated script
-    doc.setFontSize(16);
-    doc.text('Generated Script', 20, 120);
+    // Section du code
+    doc.setFontSize(18);
+    doc.setTextColor(52, 73, 94);
+    doc.text('Code Généré', 20, 150);
     
+    // Formatage du code
     doc.setFontSize(10);
-    const splitScript = doc.splitTextToSize(script || 'No script generated', 170);
-    doc.text(splitScript, 20, 130);
+    doc.setTextColor(0);
+    doc.setFont('Courier');
     
-    // Save the PDF
-    doc.save('script-generator-report.pdf');
+    // Arrière-plan gris clair pour le code
+    doc.setFillColor(245, 245, 245);
+    doc.rect(15, 155, 180, 100, 'F');
+    
+    // Formatage du script
+    const formattedScript = script
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .join('\n');
+    
+    const splitScript = doc.splitTextToSize(formattedScript, 165);
+    doc.text(splitScript, 20, 160);
+    
+    // Sauvegarde avec horodatage
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:]/g, '-');
+    doc.save(`${form.name}-script-${timestamp}.pdf`);
   };
 
   return (
     <button
       onClick={generatePDF}
-      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition"
+      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+      title="Générer et télécharger un rapport PDF du script"
     >
-      <FileDown className="w-5 h-5" />
-      Download Report
+      <FileDown className="w-4 h-4" />
+      Télécharger le rapport
     </button>
   );
 }
