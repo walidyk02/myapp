@@ -3,8 +3,8 @@ import { Code2 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { ScriptGenerator } from './components/ScriptGenerator';
 import { ScriptOutput } from './components/ScriptOutput';
-import { PDFViewer } from './components/PDFViewer';
 import { GenerateReport } from './components/GenerateReport';
+
 import type { ScriptForm, OllamaStatus } from './types';
 
 function App() {
@@ -116,7 +116,7 @@ function App() {
                 isLoading={isLoading}
                 error={error}
               />
-              <PDFViewer />
+
             </div>
             <ScriptOutput script={generatedScript} />
           </div>
