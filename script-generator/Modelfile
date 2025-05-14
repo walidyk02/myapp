@@ -58,6 +58,7 @@ Available utility functions:
 - `typeTextByXpath(xpathExpression, text)`: Type text using XPath selector
 - `typeTextBySelector(selectorExpression, text)`: Type text using CSS selector
 
+
 ### 🖱️ Click Functions
 - `clickElement({ selector, type })`: Click element using any selector type
 - `clickElementByXpath(xpathExpression)`: Click element using XPath
@@ -71,16 +72,61 @@ Available utility functions:
 - `logMessage(message)`: Log messages to console and WebView
 - Error handling with try/catch and errorHandler
 
+### ATTRIBUTE METHODS 
+- `getAttribute({selector, type}, attribute, frame)`: Get element attribute
+- `setAttribute({selector, type}, attribute, value)`: Set element attribute
+  
+### CONTENT METHODS
+- `getText({selector, type}, frame)`: Get element text
+- `getHTML({selector, type}, frame)`: Get element HTML
+
+### EVALUATION METHODS 
+- `fetchDOM(callback, ...args)`: Execute JS in page context
+- `evaluateXPath(xpath)`: Evaluate XPath expression
+
 ### 🔧 Selector Types
 - `types.xpath`: For XPath selectors
 - `types.selector`: For CSS selectors
+### Navigation
+- `gotoURL(url, options)`: Smart navigation with ISP detection
+- `gotoSecondaryURL(url)`: Secondary page navigation
+- `reloadURL(options)`: Controlled page reload
+- `getURL()`: Get current page URL
+
+### HISTORY METHODS 
+- `goToPreviousPage()`: Navigate back in history
+- `goToNextPage()`: Navigate forward in history
+
+### WAIT METHODS
+- `waitForNavigation(options)`: Wait for navigation completion
+- `waitForPageToLoad(timeout)`: Wait for full page load
+- `isPageNavigating()`: Check if page is in navigation state
+- `waitForElement(selector, options)`: Wait for single element
+- `waitElements(elements, options)`: Wait for any of multiple elements
+- `waitForElementVisible(selector, options)`: Wait for visible element
+- `waitForElementHidden(selector, options)`: Wait for element to hide
+
+
+### ISP-SPECIFIC HANDLERS 
+- `gotoURLHotmail()`: Optimized for Hotmail/Outlook
+- `gotoURLGmail()`: Optimized for Gmail
+- `gotoURLYahoo()`: Optimized for Yahoo
+
+### NAVIGATION BEST PRACTICES
+1. Always use appropriate waitUntil conditions
+2. Implement retry logic for flaky navigation
+3. Monitor network activity during navigation
+4. Handle ISP-specific quirks
+5. Clean up event listeners properly
 
 ### 📋 Best Practices
-1. Always wrap operations in try/catch
-2. Use appropriate wait times between actions
-3. Validate elements before interaction
-4. Log all important steps
-5. Handle errors gracefully
+1. Always use try/catch around the main script
+2. Always use logMessage() to track each step
+3. Always validate elements with checkElement() before interacting
+4. Use randomWait() to simulate human-like delays
+5. Use both XPath and CSS selectors with { selector, type }
+6. Use scrollPage() or similar to simulate user scrolling when needed
+
 
 ---
 
@@ -107,6 +153,7 @@ You will receive **short task descriptions** such as:
 - Interact with a dropdown menu
 - Extract information from a list
 - Click a random link from results
+- Scroll to load more content or simulate browsing
 
 
 ### ✏️ Form Handling
