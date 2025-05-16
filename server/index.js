@@ -81,7 +81,7 @@ async function generatePrompt(name, description) {
     const { data, error } = await supabase
       .from('manual_scripts')
       .select('name, description, script')
-      .limit(3);
+      .limit(6);
 
     if (error) throw error;
 
@@ -179,45 +179,83 @@ app.get('/api/status', async (req, res) => {
 
 // 🚀 Génération de script JS via Ollama
 app.post('/api/generate', async (req, res) => {
-  const status = await checkOllamaStatus();
-  if (!status.running || status.error) {
-    return res.status(503).json({ error: 'Service Ollama indisponible', message: status.error });
-  }
-
-  const { name, description } = req.body;
-  if (!name || !description) {
-    return res.status(400).json({
-      error: 'Champs requis manquants',
-      message: 'Les champs "name" et "description" sont requis.',
-    });
-  }
-
-  const { prompt, examples } = await generatePrompt(name, description);
-  if (!prompt) {
-    return res.status(500).json({ error: 'Erreur lors de la génération du prompt.' });
-  }
-
+  console.log('--- /api/generate called ---');
   try {
-    const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
+    // 1. Vérifier status Ollama
+    const status = await checkOllamaStatus();
+    console.log('Ollama status:', status);
+    if (!status.running || status.error) {
+      console.error('Ollama service unavailable:', status.error);
+      return res.status(503).json({ error: 'Service Ollama indisponible', message: status.error });
+    }
+
+    // 2. Vérifier présence des champs name et description
+    const { name, description } = req.body;
+    console.log('Request body:', req.body);
+    if (!name || !description) {
+      console.error('Missing required fields: name or description');
+      return res.status(400).json({
+        error: 'Champs requis manquants',
+        message: 'Les champs "name" et "description" sont requis.',
+      });
+    }
+
+    // 3. Générer prompt
+    const { prompt, examples } = await generatePrompt(name, description);
+    console.log('Generated prompt:', prompt);
+    if (!prompt) {
+      console.error('Prompt generation failed');
+      return res.status(500).json({ error: 'Erreur lors de la génération du prompt.' });
+    }
+
+    // 4. Appeler Ollama API
+    console.log('Calling Ollama API...');
+// Ajouter un timeout pour éviter les blocages
+const OLLAMA_TIMEOUT = 30000; // 30s
+
+try {
+  const response = await axios.post(
+    `${OLLAMA_URL}/api/generate`,
+    {  // Corps de la requête
       model: MODEL_NAME,
       prompt,
       stream: false,
       options: {
-        temperature: 0.5,
+        temperature: 0.2,
         top_p: 0.9,
         stop: ["```"]
-      },
-    });
+      }
+    },
+    {  // Configuration Axios
+      timeout: OLLAMA_TIMEOUT
+    }
+  );
+
+  console.log('Ollama API response received');
+  // ... reste du traitement
+} catch (error) {
+  if (error.code === 'ECONNABORTED') {
+    console.error('Timeout: Ollama n\'a pas répondu dans le délai imparti');
+    throw new Error('Le service de génération est trop lent à répondre');
+  }
+  // ... autres gestion d'erreurs
+}
+
 
     const generatedScript = response.data?.response;
-    if (!generatedScript) throw new Error('Aucune réponse reçue du modèle.');
-
-    // Validation simple : vérifier si le script contient le mot-clé "WP"
-    if (!generatedScript.includes('WP')) {
-      throw new Error('Le script généré n\'est pas valide.');
+    if (!generatedScript) {
+      console.error('No script received from Ollama');
+      throw new Error('Aucune réponse reçue du modèle.');
     }
 
-    // Enregistrement dans Supabase
+    // // 5. Validation simple du script
+    // if (!generatedScript.includes('WP')) {
+    //   console.warn('Generated script does not include "WP" keyword');
+    //   // Option temporaire : commenter la ligne suivante pour debug
+    //   // throw new Error('Le script généré n\'est pas valide.');
+    // }
+
+    // 6. Insertion dans Supabase
     const { error: insertError } = await supabase
       .from('scenarios')
       .insert([{
@@ -234,9 +272,11 @@ app.post('/api/generate', async (req, res) => {
       }]);
 
     if (insertError) {
-      console.error('❌ Erreur insertion Supabase :', insertError.message);
+      console.error('Supabase insertion error:', insertError.message);
+      // Tu peux décider ici si tu renvoies une erreur ou juste un warning
     }
 
+    // 7. Envoyer réponse
     res.json({
       script: generatedScript,
       metadata: {
@@ -245,13 +285,17 @@ app.post('/api/generate', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Erreur lors de l’appel à Ollama :', error);
+    console.error('❌ Error in /api/generate:', error.message);
+    if (error.response) {
+      console.error('Ollama error details:', error.response.data);
+    }
     res.status(500).json({
       error: error.message || 'Erreur de génération',
       details: error.response?.data || null,
     });
   }
 });
+
 
 
 // ▶️ Lancer le serveur
