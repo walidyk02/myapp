@@ -77,7 +77,6 @@ async function generatePrompt(name, description) {
   try {
     const coreCode = await getCoreCode();
 
-    // Récupère les exemples de scripts, mais filtre-les si nécessaire
     const { data, error } = await supabase
       .from('manual_scripts')
       .select('name, description, script')
@@ -87,53 +86,36 @@ async function generatePrompt(name, description) {
 
     const examples = data || [];
 
-    // Vous pourriez ici ajouter une logique de filtrage si vous avez des catégories dans votre base
-    // Par exemple :
-    // const filteredExamples = examples.filter(ex => ex.category === 'formAutomation');
-
-    const formatted = examples.map((ex) => (
+    const formatted = examples.map(ex => (
       `---\nName: ${ex.name}\nDescription: ${ex.description}\nScript:\n${ex.script}\n---`
     )).join('\n\n');
 
     const prompt = `
-You are a JavaScript expert working with the WP framework inside a specialized application template.
+You are a JavaScript expert specialized in web automation scripts for the WP framework.
 
 ⚠️ STRICT RULES:
-- ❌ DO NOT declare or redefine: WP, Core, core, APIS, Helpers, startScript, messages, urlNavigation — they are already initialized in the runtime.
-- ❌ DO NOT declare any class or import/require statement.
-- ✅ Only write the logic inside the main script block: this corresponds to the [script] section.
-- ✅ Use ONLY the WP.* and utilities.* functions listed below.
+- Do NOT declare any classes or import/require statements.
+- Write ONLY the script logic inside the main script block.
+- Use ONLY the WP.* and utilities.* functions listed below.
+- Wrap your code in try/catch blocks and use WP.logMessage() for logging.
+- Support both XPath and CSS selectors.
+- Use scrolling and waiting utilities to mimic human behavior.
+- Always validate elements before interaction.
 
-Here are utility functions you can use:
+Available utility functions:
 \`\`\`javascript
-// Core WP functions
-WP.randomNumber(min, max, instance?)
-WP.randomWait(min, max, instance?)
-WP.typeTextBySelector(selectorExpression, text, instance?)
-WP.typeText({ selector, type }, text, instance?)
-WP.clickElementByXpath(xpathExpression, instance?)
-WP.clickElementBySelector(selectorExpression, instance?)
-WP.clearInputBySelector(selectorExpression, instance?)
-WP.waitForNavigation({ waitUntil, timeout }, instance?)
-WP.waitForElement({ selector, type }, timeout, instance?)
-WP.gotoURL(url, waitUntil?, timeout?, instance?)
-WP.checkElementByXpath(xpathExpression, instance?)
-WP.checkElement({ selector, type }, instance?)
-WP.getElement({ selector, type }, instance?)
-WP.clickElement({ selector, type }, instance?)
-WP.fetchDOM(callback, instance?, ...args)
-WP.logMessage(message)
-utilities.scrollToBottomPage()
+// ...
 \`\`\`
 ${coreCode}
-\`\`\`
 
-Here are example scripts:
-${formatted || '// No examples found.'}
+Example scripts:
+${formatted || '// No example scripts found.'}
 
-Now, generate ONLY the logic that goes inside the script block, without declaring WP, Core, or any global.
+INSTRUCTIONS:
+Generate ONLY the JavaScript code that belongs inside the script block.
+Return the entire output as a single JavaScript code block, without explanations or extra text.
+
 Request:
-
 
 Name: ${name}
 Description: ${description}
@@ -141,11 +123,11 @@ Description: ${description}
 Script:
 `.trim();
 
-    console.log('🧪 Prompt généré :\n', prompt);
+    console.log('🧪 Generated prompt:\n', prompt);
 
     return { prompt, examples };
   } catch (error) {
-    console.error('❌ Erreur lors de la génération du prompt :', error.message);
+    console.error('❌ Error generating prompt:', error.message);
     return { prompt: null, examples: [] };
   }
 }
@@ -210,52 +192,37 @@ app.post('/api/generate', async (req, res) => {
 
     // 4. Appeler Ollama API
     console.log('Calling Ollama API...');
-// Ajouter un timeout pour éviter les blocages
-const OLLAMA_TIMEOUT = 30000; // 30s
-
-try {
-  const response = await axios.post(
-    `${OLLAMA_URL}/api/generate`,
-    {  // Corps de la requête
+    const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
       model: MODEL_NAME,
       prompt,
       stream: false,
       options: {
         temperature: 0.2,
         top_p: 0.9,
-        stop: ["```"]
-      }
-    },
-    {  // Configuration Axios
-      timeout: OLLAMA_TIMEOUT
-    }
-  );
+        // stop: ['```'],
+      },
+    });
+    console.log('Ollama API response received');
+    console.log('Ollama raw response:', response.data);
 
-  console.log('Ollama API response received');
-  // ... reste du traitement
-} catch (error) {
-  if (error.code === 'ECONNABORTED') {
-    console.error('Timeout: Ollama n\'a pas répondu dans le délai imparti');
-    throw new Error('Le service de génération est trop lent à répondre');
-  }
-  // ... autres gestion d'erreurs
-}
+    // 5. Récupérer le script généré
+    // Essayer plusieurs propriétés possibles selon la réponse
+    const generatedScript =
+      response.data?.response ||
+      response.data?.choices?.[0]?.message?.content ||
+      response.data?.text;
 
-
-    const generatedScript = response.data?.response;
     if (!generatedScript) {
-      console.error('No script received from Ollama');
-      throw new Error('Aucune réponse reçue du modèle.');
+      console.error('No script received from Ollama, full response:', response.data);
+      return res.status(500).json({ error: 'Aucune réponse reçue du modèle.' });
     }
-
-    // // 5. Validation simple du script
+    // 6. (Optionnel) Validation simple
     // if (!generatedScript.includes('WP')) {
     //   console.warn('Generated script does not include "WP" keyword');
-    //   // Option temporaire : commenter la ligne suivante pour debug
-    //   // throw new Error('Le script généré n\'est pas valide.');
+    //   throw new Error('Le script généré ne semble pas valide.');
     // }
 
-    // 6. Insertion dans Supabase
+    // 7. Insertion dans Supabase
     const { error: insertError } = await supabase
       .from('scenarios')
       .insert([{
@@ -273,23 +240,28 @@ try {
 
     if (insertError) {
       console.error('Supabase insertion error:', insertError.message);
-      // Tu peux décider ici si tu renvoies une erreur ou juste un warning
+      // Tu peux ici retourner une réponse 207 ou juste continuer
     }
 
-    // 7. Envoyer réponse
-    res.json({
-      script: generatedScript,
+    // 8. Répondre au client
+    return res.status(200).json({
+      script: generatedScript.trim(),
       metadata: {
         model: MODEL_NAME,
         generated_at: new Date().toISOString(),
+        examples,
       },
     });
+
   } catch (error) {
     console.error('❌ Error in /api/generate:', error.message);
+    if (error.code === 'ECONNABORTED') {
+      return res.status(504).json({ error: 'Timeout', message: 'Le service est trop lent à répondre.' });
+    }
     if (error.response) {
       console.error('Ollama error details:', error.response.data);
     }
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Erreur de génération',
       details: error.response?.data || null,
     });
