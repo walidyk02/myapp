@@ -163,6 +163,8 @@ app.get('/api/status', async (req, res) => {
 app.post('/api/generate', async (req, res) => {
   console.log('--- /api/generate called ---');
   try {
+    let generatedScript = ''; // Declare at top of try block
+
     // 1. Vérifier status Ollama
     const status = await checkOllamaStatus();
     console.log('Ollama status:', status);
@@ -205,17 +207,9 @@ app.post('/api/generate', async (req, res) => {
     console.log('Ollama API response received');
     console.log('Ollama raw response:', response.data);
 
-    // 5. Récupérer le script généré
-    // Essayer plusieurs propriétés possibles selon la réponse
-    const generatedScript =
-      response.data?.response ||
-      response.data?.choices?.[0]?.message?.content ||
-      response.data?.text;
+    // 5. Récupération du script généré
+    generatedScript = response.data?.response || ''; // Assign here
 
-    if (!generatedScript) {
-      console.error('No script received from Ollama, full response:', response.data);
-      return res.status(500).json({ error: 'Aucune réponse reçue du modèle.' });
-    }
     // 6. (Optionnel) Validation simple
     // if (!generatedScript.includes('WP')) {
     //   console.warn('Generated script does not include "WP" keyword');
@@ -267,6 +261,7 @@ app.post('/api/generate', async (req, res) => {
     });
   }
 });
+        top_p: 0.9,
 
 
 
