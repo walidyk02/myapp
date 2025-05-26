@@ -80,7 +80,7 @@ async function generatePrompt(name, description) {
     const { data, error } = await supabase
       .from('manual_scripts')
       .select('name, description, script')
-      .limit(6);
+      .limit(2);
 
     if (error) throw error;
 
@@ -91,37 +91,43 @@ async function generatePrompt(name, description) {
     )).join('\n\n');
 
     const prompt = `
-You are a JavaScript expert specialized in web automation scripts for the WP framework.
+    You are a JavaScript expert specialized in web automation scripts using the WP framework.
+    
+    ⚠️ STRICT RULES:
+    - Your only input for the task is the Name and Description below.
+    - Do NOT copy or reuse unrelated examples.
+    - NEVER generate generic search/scroll/click templates unless explicitly requested.
+    - Focus 100% on the described behavior.
+    - Do NOT add import/require statements or declare classes.
+    - Your code must be inside the main script block only.
+    - Use ONLY the WP.* and utilities.* functions provided below.
+    - Wrap code in try/catch with WP.logMessage() for logging.
+    - Support XPath and CSS selectors.
+    - Always validate elements before interaction.
+    
+    Available utility functions:
+    \`\`\`javascript
+    // ...
+    \`\`\`
+    ${coreCode}
+    
+    --- Examples (for structure reference only) ---
+    ${formatted || '// No example scripts found.'}
+    --- End Examples ---
+    
+    📝 TASK:
+    
+    Name: ${name}
+    Description: ${description}
+    
+    ⛔ You must strictly follow the Description.
+    ✅ You must write ONLY the relevant JavaScript code inside the script block.
+    
+    Output the complete script block:
 
-⚠️ STRICT RULES:
-- Do NOT declare any classes or import/require statements.
-- Write ONLY the script logic inside the main script block.
-- Use ONLY the WP.* and utilities.* functions listed below.
-- Wrap your code in try/catch blocks and use WP.logMessage() for logging.
-- Support both XPath and CSS selectors.
-- Use scrolling and waiting utilities to mimic human behavior.
-- Always validate elements before interaction.
 
-Available utility functions:
-\`\`\`javascript
-// ...
-\`\`\`
-${coreCode}
-
-Example scripts:
-${formatted || '// No example scripts found.'}
-
-INSTRUCTIONS:
-Generate ONLY the JavaScript code that belongs inside the script block.
-Return the entire output as a single JavaScript code block, without explanations or extra text.
-
-Request:
-
-Name: ${name}
-Description: ${description}
-
-Script:
-`.trim();
+ \`\`\`javascript
+ `.trim();
 
     console.log('🧪 Generated prompt:\n', prompt);
 
@@ -173,8 +179,8 @@ app.post('/api/generate', async (req, res) => {
       return res.status(503).json({ error: 'Service Ollama indisponible', message: status.error });
     }
 
-    // 2. Vérifier présence des champs name et description
-    const { name, description } = req.body;
+    // 2. Vérifier présence des champs name, description, temperature, top_p
+    const { name, description, temperature = 0.5, top_p = 0.9 } = req.body;
     console.log('Request body:', req.body);
     if (!name || !description) {
       console.error('Missing required fields: name or description');
@@ -199,9 +205,9 @@ app.post('/api/generate', async (req, res) => {
       prompt,
       stream: false,
       options: {
-        temperature: 0.2,
-        top_p: 0.9,
-        // stop: ['```'],
+        temperature,
+        top_p,
+        stop: ['```'],
       },
     });
     console.log('Ollama API response received');
@@ -246,7 +252,6 @@ app.post('/api/generate', async (req, res) => {
         examples,
       },
     });
-
   } catch (error) {
     console.error('❌ Error in /api/generate:', error.message);
     if (error.code === 'ECONNABORTED') {
@@ -261,7 +266,6 @@ app.post('/api/generate', async (req, res) => {
     });
   }
 });
-        top_p: 0.9,
 
 
 

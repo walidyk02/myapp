@@ -1,6 +1,8 @@
 export interface ScriptForm {
   name: string;
   description: string;
+  temperature?: number;
+  top_p?: number;
 }
 
 export interface Script {
