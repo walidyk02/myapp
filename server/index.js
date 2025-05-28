@@ -107,9 +107,8 @@ async function generatePrompt(name, description) {
     
     Available utility functions:
     \`\`\`javascript
-    // ...
-    \`\`\`
     ${coreCode}
+    \`\`\`
     
     --- Examples (for structure reference only) ---
     ${formatted || '// No example scripts found.'}
@@ -124,10 +123,8 @@ async function generatePrompt(name, description) {
     ✅ You must write ONLY the relevant JavaScript code inside the script block.
     
     Output the complete script block:
-
-
- \`\`\`javascript
- `.trim();
+    \`\`\`javascript
+    `.trim();
 
     console.log('🧪 Generated prompt:\n', prompt);
 
